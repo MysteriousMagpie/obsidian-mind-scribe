@@ -5,7 +5,7 @@ import pytest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from agent.tidier import infer_type_from_content, normalize_tags, ensure_frontmatter
+from agent.frontmatter_handler import infer_type_from_content, normalize_tags, ensure_frontmatter
 import frontmatter
 
 
