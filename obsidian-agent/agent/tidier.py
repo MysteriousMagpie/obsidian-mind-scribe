@@ -161,6 +161,16 @@ def ensure_frontmatter(post: frontmatter.Post, note_path: Path) -> bool:
         post.metadata['tags'] = []
         modified = True
     
+    # Add PARA-specific fields if using PARA structure
+    if _is_para_vault():
+        if 'para_type' not in post.metadata:
+            post.metadata['para_type'] = infer_para_type_basic(post.content, note_path)
+            modified = True
+        
+        if 'last_modified' not in post.metadata:
+            post.metadata['last_modified'] = datetime.now().strftime('%Y-%m-%d')
+            modified = True
+    
     return modified
 
 
@@ -210,6 +220,47 @@ def infer_type_from_content(content: str, note_path: Path) -> str:
     return 'note'
 
 
+def infer_para_type_basic(content: str, note_path: Path) -> str:
+    """
+    Basic PARA type inference for tidier module.
+    
+    Args:
+        content: The note content
+        note_path: Path to the note file
+        
+    Returns:
+        Inferred PARA type string
+    """
+    filename = note_path.stem.lower()
+    content_lower = content.lower()
+    
+    # Check for daily notes
+    if re.match(r'^\d{4}-\d{2}-\d{2}', filename):
+        return 'daily'
+    
+    # Check for common patterns
+    if any(keyword in filename for keyword in ['project', 'proj']):
+        return 'project'
+    elif any(keyword in filename for keyword in ['daily', 'journal']):
+        return 'daily'
+    elif any(keyword in filename for keyword in ['guide', 'reference', 'resource']):
+        return 'resource'
+    elif any(keyword in filename for keyword in ['area', 'responsibility']):
+        return 'area'
+    
+    # Check content
+    if any(phrase in content_lower for phrase in ['project:', 'deadline:', 'deliverable:']):
+        return 'project'
+    elif any(phrase in content_lower for phrase in ['daily note', 'today i']):
+        return 'daily'
+    elif any(phrase in content_lower for phrase in ['reference', 'guide:', 'tutorial:']):
+        return 'resource'
+    elif any(phrase in content_lower for phrase in ['ongoing', 'responsibility']):
+        return 'area'
+    
+    return 'inbox'
+
+
 def normalize_tags(post: frontmatter.Post) -> bool:
     """
     Normalize tags to ensure they're in frontmatter as a proper list.
@@ -256,7 +307,37 @@ def get_conventional_name(note_path: Path, post: frontmatter.Post) -> str:
     """
     current_name = note_path.name
     
-    # If already has date prefix, keep it
+    # If using PARA structure, use PARA naming conventions
+    if _is_para_vault():
+        para_type = post.metadata.get('para_type', 'inbox')
+        
+        # For daily notes, ensure date prefix
+        if para_type == 'daily':
+            if re.match(r'^\d{4}-\d{2}-\d{2}--', current_name):
+                return current_name
+            
+            # Get date and create proper daily note name
+            date_str = post.metadata.get('date_created', datetime.now().strftime('%Y-%m-%d'))
+            try:
+                if isinstance(date_str, str):
+                    date_obj = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+                else:
+                    date_obj = date_str
+                date_prefix = date_obj.strftime('%Y-%m-%d')
+            except:
+                date_prefix = datetime.fromtimestamp(note_path.stat().st_mtime).strftime('%Y-%m-%d')
+            
+            return f"{date_prefix}--daily-note.md"
+        
+        # For other PARA types, use title case
+        title = post.metadata.get('title', note_path.stem)
+        normalized = re.sub(r'[^\w\s\-]', '', title)
+        normalized = ' '.join(word.capitalize() for word in normalized.split())
+        normalized = normalized.replace(' ', '_')
+        
+        return f"{normalized}.md"
+    
+    # Original naming logic for non-PARA vaults
     if re.match(r'^\d{4}-\d{2}-\d{2}--', current_name):
         return current_name
     
@@ -292,15 +373,39 @@ def get_correct_folder(post: frontmatter.Post, note_path: Path) -> Path:
     Returns:
         Path to the correct folder
     """
+    # If using PARA structure, use PARA folders
+    if _is_para_vault():
+        para_type = post.metadata.get('para_type', 'inbox')
+        
+        para_folders = {
+            'inbox': '00_Inbox',
+            'template': '01_Templates',
+            'project': '02_Projects',
+            'area': '03_Areas',
+            'resource': '04_Resources',
+            'daily': '05_Daily',
+            'archive': '06_Archive'
+        }
+        
+        target_folder = para_folders.get(para_type, '00_Inbox')
+        target_path = config.vault_path / target_folder
+        
+        # Check if already in correct location
+        try:
+            note_path.relative_to(target_path)
+            return note_path.parent
+        except ValueError:
+            return target_path
+    
+    # Original folder logic for non-PARA vaults
     note_type = post.metadata.get('type', 'note')
     
-    # Define type to folder mapping
     type_folders = {
         'observation': '3-Areas/Mind-Body-System/observations',
         'hypothesis': '3-Areas/Mind-Body-System/hypotheses',
         'review': '3-Areas/Mind-Body-System/reviews',
         'project': '2-Projects',
-        'note': '1-Inbox'  # Default location for generic notes
+        'note': '1-Inbox'
     }
     
     target_folder = type_folders.get(note_type, '1-Inbox')
@@ -311,8 +416,18 @@ def get_correct_folder(post: frontmatter.Post, note_path: Path) -> Path:
         note_path.relative_to(target_path)
         return note_path.parent
     except ValueError:
-        # Not in target folder, return target
         return target_path
+
+
+def _is_para_vault() -> bool:
+    """Check if vault is using PARA structure."""
+    para_folders = ['00_Inbox', '01_Templates', '02_Projects', '03_Areas', '04_Resources']
+    
+    for folder in para_folders:
+        if (config.vault_path / folder).exists():
+            return True
+    
+    return False
 
 
 def _save_note(note_path: Path, post: frontmatter.Post) -> None:
