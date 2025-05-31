@@ -5,6 +5,8 @@ CLI entry point for the Obsidian Agent.
 Usage:
     python run.py summarize
     python run.py summarize --days 30
+    python run.py tidy
+    python run.py tidy --dry-run
 """
 
 import sys
@@ -18,6 +20,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from agent.config import config
 from agent.summarizer import process_observation_notes, generate_weekly_review_markdown
 from agent.writer import write_weekly_review, ensure_vault_structure
+from agent.tidier import tidy_vault
 
 
 @click.group()
@@ -82,6 +85,51 @@ def summarize(days: int, output_date: str):
         if len(lines) > 10:
             print("...")
         print("=" * 50)
+        
+    except ValueError as e:
+        print(f"❌ Configuration error: {e}")
+        sys.exit(1)
+    except Exception as e:
+        print(f"❌ Error: {e}")
+        sys.exit(1)
+
+
+@cli.command()
+@click.option(
+    '--dry-run',
+    is_flag=True,
+    help='Show what would be done without making changes'
+)
+def tidy(dry_run: bool):
+    """Tidy and organize markdown files in the Obsidian vault."""
+    
+    try:
+        # Validate configuration
+        config.validate()
+        
+        print(f"🧹 Tidying Obsidian vault...")
+        print(f"📁 Vault path: {config.vault_path}")
+        
+        # Run tidying process
+        stats = tidy_vault(dry_run=dry_run)
+        
+        # Print summary
+        print("\n📊 Tidying Summary:")
+        print("=" * 40)
+        print(f"Files processed: {stats['files_processed']}")
+        print(f"Frontmatter added: {stats['frontmatter_added']}")
+        print(f"Files moved: {stats['files_moved']}")
+        print(f"Files renamed: {stats['files_renamed']}")
+        print(f"Tags normalized: {stats['tags_normalized']}")
+        
+        if stats['errors'] > 0:
+            print(f"Errors encountered: {stats['errors']}")
+        
+        if dry_run:
+            print("\n🧪 This was a dry run - no files were modified.")
+            print("   Run without --dry-run to apply changes.")
+        else:
+            print(f"\n✅ Tidying complete!")
         
     except ValueError as e:
         print(f"❌ Configuration error: {e}")
