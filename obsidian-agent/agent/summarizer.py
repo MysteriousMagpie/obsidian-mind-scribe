@@ -1,0 +1,170 @@
+
+"""Module for summarizing observation notes and generating insights."""
+
+from datetime import datetime
+from pathlib import Path
+from typing import List, Dict, Any
+
+import frontmatter
+
+from .vault_reader import get_observation_notes, read_note_content
+from .gpt_client import gpt_client
+
+
+def process_observation_notes(days: int = 7) -> Dict[str, Any]:
+    """
+    Process observation notes from the last n days.
+    
+    Args:
+        days: Number of days to look back for notes
+        
+    Returns:
+        Dictionary containing processed notes and metadata
+    """
+    note_files = get_observation_notes(days)
+    
+    if not note_files:
+        return {
+            "notes_processed": 0,
+            "summaries": [],
+            "period": f"last {days} days",
+            "date_range": f"{datetime.now().strftime('%Y-%m-%d')} (no notes found)"
+        }
+    
+    summaries = []
+    
+    for file_path in note_files:
+        try:
+            # Read and parse the note
+            content = read_note_content(file_path)
+            
+            # Try to parse frontmatter, fall back to plain text
+            try:
+                post = frontmatter.loads(content)
+                note_content = post.content
+                metadata = post.metadata
+            except:
+                note_content = content
+                metadata = {}
+            
+            # Skip empty notes
+            if not note_content.strip():
+                continue
+            
+            # Get GPT analysis
+            analysis = gpt_client.summarize(note_content)
+            
+            summaries.append({
+                "file_name": file_path.name,
+                "file_path": str(file_path),
+                "metadata": metadata,
+                "analysis": analysis,
+                "word_count": len(note_content.split())
+            })
+            
+        except Exception as e:
+            print(f"Warning: Failed to process {file_path}: {str(e)}")
+            continue
+    
+    # Calculate date range
+    if note_files:
+        oldest_mtime = min(f.stat().st_mtime for f in note_files)
+        newest_mtime = max(f.stat().st_mtime for f in note_files)
+        oldest_date = datetime.fromtimestamp(oldest_mtime).strftime('%Y-%m-%d')
+        newest_date = datetime.fromtimestamp(newest_mtime).strftime('%Y-%m-%d')
+        date_range = f"{oldest_date} to {newest_date}"
+    else:
+        date_range = "No notes found"
+    
+    return {
+        "notes_processed": len(summaries),
+        "summaries": summaries,
+        "period": f"last {days} days",
+        "date_range": date_range
+    }
+
+
+def generate_weekly_review_markdown(processed_data: Dict[str, Any]) -> str:
+    """
+    Generate markdown content for the weekly review.
+    
+    Args:
+        processed_data: Output from process_observation_notes
+        
+    Returns:
+        Formatted markdown string for the weekly review
+    """
+    now = datetime.now()
+    
+    markdown = f"""# Weekly Review - {now.strftime('%Y-%m-%d')}
+
+## Overview
+- **Period**: {processed_data['period']}
+- **Date Range**: {processed_data['date_range']}
+- **Notes Processed**: {processed_data['notes_processed']}
+- **Generated**: {now.strftime('%Y-%m-%d %H:%M:%S')}
+
+---
+
+"""
+    
+    if not processed_data['summaries']:
+        markdown += "## No Observations Found\n\nNo observation notes were found for the specified time period.\n"
+        return markdown
+    
+    markdown += "## Individual Note Summaries\n\n"
+    
+    for i, summary in enumerate(processed_data['summaries'], 1):
+        analysis = summary['analysis']
+        markdown += f"""### {i}. {summary['file_name']}
+
+**Summary**: {analysis['summary']}
+
+**Hypothesis**: {analysis['hypothesis']}
+
+**Follow-up Question**: {analysis['follow_up_question']}
+
+**Word Count**: {summary['word_count']}
+
+---
+
+"""
+    
+    # Generate overall insights section
+    markdown += "## Overall Insights\n\n"
+    
+    # Extract common themes (simple keyword analysis)
+    all_summaries = [s['analysis']['summary'] for s in processed_data['summaries']]
+    all_hypotheses = [s['analysis']['hypothesis'] for s in processed_data['summaries']]
+    
+    markdown += f"""### Key Themes
+Based on {len(processed_data['summaries'])} observations:
+
+"""
+    
+    for i, summary in enumerate(processed_data['summaries'], 1):
+        markdown += f"- **Note {i}**: {summary['analysis']['summary'][:100]}...\n"
+    
+    markdown += f"""
+
+### Research Questions
+The following questions emerged from this week's observations:
+
+"""
+    
+    for i, summary in enumerate(processed_data['summaries'], 1):
+        markdown += f"- {summary['analysis']['follow_up_question']}\n"
+    
+    markdown += f"""
+
+### Next Steps
+1. Review the follow-up questions above
+2. Consider conducting focused observations on identified patterns
+3. Schedule time to explore the most intriguing hypotheses
+
+---
+
+*Generated by Obsidian Agent v1.0.0*
+"""
+    
+    return markdown
