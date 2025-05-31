@@ -43,14 +43,26 @@ class TestVaultReader:
         
         # Create mock files with different modification times
         now = datetime.now()
+        
+        # Old file (10 days ago) - should be excluded
         old_file = MagicMock()
         old_file.is_file.return_value = True
-        old_file.stat.return_value.st_mtime = (now - timedelta(days=10)).timestamp()
+        old_file.name = "old_note.md"
+        old_file.suffix = ".md"
+        old_stat = MagicMock()
+        old_stat.st_mtime = (now - timedelta(days=10)).timestamp()
+        old_file.stat.return_value = old_stat
         
+        # Recent file (2 days ago) - should be included
         recent_file = MagicMock()
         recent_file.is_file.return_value = True
-        recent_file.stat.return_value.st_mtime = (now - timedelta(days=2)).timestamp()
+        recent_file.name = "recent_note.md"
+        recent_file.suffix = ".md"
+        recent_stat = MagicMock()
+        recent_stat.st_mtime = (now - timedelta(days=2)).timestamp()
+        recent_file.stat.return_value = recent_stat
         
+        # Mock rglob to return both files
         mock_obs_path.rglob.return_value = [old_file, recent_file]
         
         result = get_observation_notes(days=7)
@@ -58,6 +70,44 @@ class TestVaultReader:
         # Should only return the recent file
         assert len(result) == 1
         assert result[0] == recent_file
+    
+    @patch('agent.vault_reader.config')
+    def test_get_observation_notes_excludes_old_files(self, mock_config):
+        """Test that get_observation_notes excludes files outside the timeframe even if they are markdown."""
+        # Mock the vault path structure
+        mock_vault_path = MagicMock()
+        mock_config.vault_path = mock_vault_path
+        
+        mock_obs_path = MagicMock()
+        mock_vault_path.__truediv__.return_value = mock_obs_path
+        mock_obs_path.exists.return_value = True
+        
+        # Create mock files - all old (should be excluded)
+        now = datetime.now()
+        
+        old_file_1 = MagicMock()
+        old_file_1.is_file.return_value = True
+        old_file_1.name = "old_note_1.md"
+        old_file_1.suffix = ".md"
+        old_stat_1 = MagicMock()
+        old_stat_1.st_mtime = (now - timedelta(days=15)).timestamp()
+        old_file_1.stat.return_value = old_stat_1
+        
+        old_file_2 = MagicMock()
+        old_file_2.is_file.return_value = True
+        old_file_2.name = "old_note_2.md"
+        old_file_2.suffix = ".md"
+        old_stat_2 = MagicMock()
+        old_stat_2.st_mtime = (now - timedelta(days=30)).timestamp()
+        old_file_2.stat.return_value = old_stat_2
+        
+        # Mock rglob to return old files
+        mock_obs_path.rglob.return_value = [old_file_1, old_file_2]
+        
+        result = get_observation_notes(days=7)
+        
+        # Should return empty list since all files are outside the timeframe
+        assert len(result) == 0
     
     def test_read_note_content_basic(self):
         """Test reading note content from a file."""
