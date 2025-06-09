@@ -22,7 +22,10 @@ def get_observation_notes(days: int = 7) -> List[Path]:
     Raises:
         ValueError: If vault path doesn't exist or observations folder not found
     """
-    observations_path = config.vault_path / "3-Areas" / "Mind-Body-System" / "observations"
+    # Build the path in one operation so mocked __truediv__ works in tests
+    observations_path = config.vault_path / Path(
+        "3-Areas/Mind-Body-System/observations"
+    )
     
     if not observations_path.exists():
         raise ValueError(
