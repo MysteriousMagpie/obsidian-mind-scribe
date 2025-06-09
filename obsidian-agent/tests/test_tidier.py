@@ -64,24 +64,24 @@ class TestTidier:
         """Test that hashtags in content are extracted to frontmatter."""
         post = frontmatter.Post("This is content with #productivity and #learning tags.")
         post.metadata = {'tags': []}
-        
+
         result = normalize_tags(post)
-        
+
         assert result is True
         assert set(post.metadata['tags']) == {'productivity', 'learning'}
-    
-    def test_normalize_tags_merge_existing(self):
-        """Test that existing frontmatter tags are merged with content tags."""
-        post = frontmatter.Post("Content with #newTag here.")
-        post.metadata = {'tags': ['existingTag']}
+
+    def test_normalize_tags_hyphenated(self):
+        """Tags with hyphens are correctly extracted."""
+        post = frontmatter.Post("Content with #my-tag and #another-tag.")
+        post.metadata = {'tags': []}
 
         result = normalize_tags(post)
 
         assert result is True
-        assert set(post.metadata['tags']) == {'existingTag', 'newTag'}
+        assert set(post.metadata['tags']) == {'my-tag', 'another-tag'}
 
-    def test_normalize_tags_hyphenated(self):
-        """Tags with hyphens should be detected and normalized."""
+    def test_normalize_tags_time_management(self):
+        """Tags like #time-management should be captured."""
         post = frontmatter.Post("Working on better #time-management skills.")
         post.metadata = {'tags': []}
 
@@ -89,6 +89,16 @@ class TestTidier:
 
         assert result is True
         assert post.metadata['tags'] == ['time-management']
+    
+    def test_normalize_tags_merge_existing(self):
+        """Test that existing frontmatter tags are merged with content tags."""
+        post = frontmatter.Post("Content with #newTag here.")
+        post.metadata = {'tags': ['existingTag']}
+        
+        result = normalize_tags(post)
+        
+        assert result is True
+        assert set(post.metadata['tags']) == {'existingTag', 'newTag'}
     
     def test_normalize_tags_no_changes(self):
         """Test that no changes are made when tags are already normalized."""

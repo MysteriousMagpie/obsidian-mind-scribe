@@ -15,7 +15,7 @@ class GPTClient:
     
     def summarize(self, text: str) -> Dict[str, str]:
         """
-        Summarize observation text using GPT-4.
+        Summarize observation text using a GPT-4 model (``gpt-4o``).
         
         Args:
             text: The observation note content to summarize
