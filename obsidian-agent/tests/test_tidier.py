@@ -64,11 +64,21 @@ class TestTidier:
         """Test that hashtags in content are extracted to frontmatter."""
         post = frontmatter.Post("This is content with #productivity and #learning tags.")
         post.metadata = {'tags': []}
-        
+
         result = normalize_tags(post)
-        
+
         assert result is True
         assert set(post.metadata['tags']) == {'productivity', 'learning'}
+
+    def test_normalize_tags_hyphenated(self):
+        """Tags with hyphens are correctly extracted."""
+        post = frontmatter.Post("Content with #my-tag and #another-tag.")
+        post.metadata = {'tags': []}
+
+        result = normalize_tags(post)
+
+        assert result is True
+        assert set(post.metadata['tags']) == {'my-tag', 'another-tag'}
     
     def test_normalize_tags_merge_existing(self):
         """Test that existing frontmatter tags are merged with content tags."""
