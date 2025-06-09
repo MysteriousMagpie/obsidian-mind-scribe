@@ -74,11 +74,21 @@ class TestTidier:
         """Test that existing frontmatter tags are merged with content tags."""
         post = frontmatter.Post("Content with #newTag here.")
         post.metadata = {'tags': ['existingTag']}
-        
+
         result = normalize_tags(post)
-        
+
         assert result is True
         assert set(post.metadata['tags']) == {'existingTag', 'newTag'}
+
+    def test_normalize_tags_hyphenated(self):
+        """Tags with hyphens should be detected and normalized."""
+        post = frontmatter.Post("Working on better #time-management skills.")
+        post.metadata = {'tags': []}
+
+        result = normalize_tags(post)
+
+        assert result is True
+        assert post.metadata['tags'] == ['time-management']
     
     def test_normalize_tags_no_changes(self):
         """Test that no changes are made when tags are already normalized."""

@@ -67,7 +67,8 @@ def normalize_tags(post: frontmatter.Post) -> bool:
     modified = False
     
     # Extract tags from content (hashtags)
-    content_tags = re.findall(r'#(\w+)', post.content)
+    # Support hyphenated tags like #time-management
+    content_tags = re.findall(r'#([\w-]+)', post.content)
     
     # Get existing frontmatter tags
     fm_tags = post.metadata.get('tags', [])
