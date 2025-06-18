@@ -1,0 +1,2 @@
+[console_scripts]
+obsidian-agent = run:cli
