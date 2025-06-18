@@ -71,3 +71,49 @@ Yes, you can!
 To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
 Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+
+## Local Development
+
+Follow these steps to run the full application locally (backend and frontend):
+
+1. **Python backend**
+   1. Create and activate a virtual environment in the project root:
+      ```bash
+      python3 -m venv venv
+      source venv/bin/activate
+      ```
+   2. Upgrade packaging tools:
+      ```bash
+      pip install --upgrade pip setuptools wheel
+      ```
+   3. Install Python dependencies, including the editable `obsidian-agent` package:
+      ```bash
+      pip install -r requirements.txt
+      ```
+   4. Create a `.env` file in the root (or copy `.env.example`) and set your OpenAI API key:
+      ```text
+      OPENAI_API_KEY=sk-...
+      VAULT_PATH=/path/to/your/obsidian/vault
+      PYTHONPATH=${workspaceFolder}/obsidian-agent
+      FLASK_PORT=5000  # optional: override default port
+      ```
+   5. Start the Flask server:
+      ```bash
+      python app.py
+      ```
+
+2. **React frontend**
+   1. Install Node.js dependencies:
+      ```bash
+      npm install
+      ```
+   2. Verify the API proxy in `vite.config.ts` matches the `FLASK_PORT` if you overrode it.
+   3. Run the Vite development server:
+      ```bash
+      npm run dev
+      ```
+   4. Open your browser to `http://localhost:8080` to access the app.
+
+3. **Troubleshooting**
+   - If you see Pylance import errors for `agent.*`, ensure the `.env` file and VS Code setting `python.envFile` point to the root `.env`, or add `obsidian-agent/` to `python.analysis.extraPaths` in `.vscode/settings.json`.
+   - If port 5000 is in use, set `FLASK_PORT` to another value and update the Vite proxy accordingly.
