@@ -7,7 +7,13 @@ import { componentTagger } from "lovable-tagger";
 export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
-    port: 8080,
+    port: 8080, // Vite frontend runs on 8080
+    proxy: {
+      '/api': {
+        target: 'http://localhost:5100', // Flask backend runs on 5100
+        changeOrigin: true,
+      }
+    }
   },
   plugins: [
     react(),

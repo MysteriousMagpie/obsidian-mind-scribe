@@ -27,8 +27,16 @@ def favicon():
 @app.route('/api/message', methods=['POST'])
 def message():
     data = request.get_json() or {}
-    # Default to 7 days; you could parse data.get('message') for custom days
-    days = 7
+    user_message = data.get('message', '')
+    date_range = data.get('dateRange', 7)
+    # Support 'all' as a special value for all time
+    if date_range == 'all':
+        days = 3650  # 10 years, effectively 'all time'
+    else:
+        try:
+            days = int(date_range)
+        except Exception:
+            days = 7
     try:
         config.validate()
         ensure_vault_structure()
@@ -45,5 +53,5 @@ def message():
 
 if __name__ == '__main__':
     # Read port from environment 
-    port = int(os.environ.get('FLASK_PORT', 8080))
+    port = int(os.environ.get('FLASK_PORT', 5100))
     app.run(debug=True, host='0.0.0.0', port=port)
